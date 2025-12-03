@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship, func, Column, AutoString
 from pydantic import EmailStr
 from sqlalchemy import UniqueConstraint
 from sqlalchemy_utc import UtcDateTime
@@ -31,6 +31,7 @@ class User(SQLModel, table=True):
             "server_default": func.now(),
             "onupdate": lambda: datetime.now(timezone.utc)
         })
+    oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
 
 class OAuthAccount(SQLModel, table=True):
     __table__ = "oauth_accounts"
@@ -42,11 +43,13 @@ class OAuthAccount(SQLModel, table=True):
         ),
     )
 
+    id: int = Field(default=None, primary_key=True)
+
     provider: str = Field(max_length=10, description="OAuth provider")
     provider_account_id: str = Field(max_length=128, description="OAuth provider account ID")
 
     user_id: int = Field(foreign_key="users.id")
-    user: USer = Relationship()
+    user: USer = Relationship(back_populates="oauth_accounts")
 
     created_at: AwareDateTime = Field(
         default=None, 

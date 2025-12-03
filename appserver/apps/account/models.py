@@ -38,6 +38,8 @@ class User(SQLModel, table=True):
     oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
     calendar: "Calendar" = Relationship(back_populates="host", sa_relationship_kwargs={"uselist": False, "single_parent": True}),
 
+    bookings: list["Booking"] = Relationship(back_populates="guest")
+
 class OAuthAccount(SQLModel, table=True):
     __table__ = "oauth_accounts"
     __table_args__ = (

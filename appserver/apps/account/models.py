@@ -3,6 +3,10 @@ from sqlmodel import SQLModel, Field, Relationship, func, Column, AutoString
 from pydantic import EmailStr
 from sqlalchemy import UniqueConstraint
 from sqlalchemy_utc import UtcDateTime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from appserver.apps.calendar.models import Calendar
 
 class User(SQLModel, table=True):
     __table__ = "users"
@@ -32,6 +36,7 @@ class User(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc)
         })
     oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
+    calendar: "Calendar" = Relationship(back_populates="host", sa_relationship_kwargs={"uselist": False, "single_parent": True}),
 
 class OAuthAccount(SQLModel, table=True):
     __table__ = "oauth_accounts"
@@ -49,7 +54,7 @@ class OAuthAccount(SQLModel, table=True):
     provider_account_id: str = Field(max_length=128, description="OAuth provider account ID")
 
     user_id: int = Field(foreign_key="users.id")
-    user: USer = Relationship(back_populates="oauth_accounts")
+    user: User = Relationship(back_populates="oauth_accounts")
 
     created_at: AwareDateTime = Field(
         default=None, 

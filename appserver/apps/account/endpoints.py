@@ -6,6 +6,7 @@ from .exceptions import DuplicatedUsernameError, DuplicatedEmailError
 from appserver.db import create_async_engine, create_session
 from .models import User
 from appserver.db import DbSessionDep
+from .schemas import SignupPayload
 
 
 router = APIRouter(prefix="/account")
@@ -50,8 +51,8 @@ async def user_detail(username: str, session: DbSessionDep) -> User:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 @router.post("/signup")
-async def signup(payload: dict, session: DbSessionDep) -> User:
-    stmt = select(func.count()).select_from(User).where(User.username == payload["username"])
+async def signup(payload: SignupPayload, session: DbSessionDep) -> User:
+    stmt = select(func.count()).select_from(User).where(User.username == payload.username)
     result = await session.execute(stmt)
     count = result.scalar_one()
     if count > 0:
@@ -67,3 +68,18 @@ async def signup(payload: dict, session: DbSessionDep) -> User:
         raise DuplicatedEmailError()
     return
 
+@router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=UserOut)
+async def signup(payload: dict, session: DbSessionDep) -> User:
+    stmt = select(func.count()).select_from(User).where(User.username == payload["username"])
+    result = await session.execute(stmt)
+    count = result.scalar_one()
+    if count > 0:
+        raise DuplicatedUsernameError()
+
+    user = User.model_validate(payload)
+    session.add(user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        raise DuplicatedEmailError()
+    return user

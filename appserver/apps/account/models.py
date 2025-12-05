@@ -39,12 +39,12 @@ class User(SQLModel, table=True):
             "onupdate": lambda: datetime.now(timezone.utc)
         })
 
-    @model_validator(mode="before")
-    @classmethod
-    def generate_display_name(cls, data: dict):
-        if not data.get("display_name"):
-            data["display_name"] = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-        return data
+    # @model_validator(mode="before")
+    # @classmethod
+    # def generate_display_name(cls, data: dict):
+    #     if not data.get("display_name"):
+    #         data["display_name"] = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    #     return data
 
     oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
     calendar: "Calendar" = Relationship(back_populates="host", sa_relationship_kwargs={"uselist": False, "single_parent": True}),

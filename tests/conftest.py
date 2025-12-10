@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from appserver.db import create_async_engine, create_session, use_session
 from appserver.app import include_routers
+from appserver.apps.account.utils import hash_password
 
 @pytest.fixture(autouse=True)
 async def db_session():
@@ -45,4 +46,16 @@ def client(fastapi_app: FastAPI):
     with TestClient(fastapi_app) as client:
         yield client
 
-
+@pytest.fixture()
+async def host_user(db_session: AsyncSession):
+    user = account_models.User(
+        username="puddingcamp",
+        hashed_password=hash_password("testtest"),
+        email="test@example.com",
+        display_name="푸딩캠프",
+        is_host=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.flush()
+    return user

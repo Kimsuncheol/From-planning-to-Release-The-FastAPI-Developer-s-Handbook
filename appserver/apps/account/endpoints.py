@@ -1,4 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from fastapi.responses import JSONResponse
+from .utils import (
+    verify_password,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select, SQLModel, func
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +14,9 @@ from .models import User
 from appserver.db import DbSessionDep
 from .schemas import SignupPayload
 
+from .exceptions import PasswordMismatchError, UserNotFoundError
+from .schemas import SignupPayload, UserOut, LoginPayload
+from .utils import verify_password
 
 router = APIRouter(prefix="/account")
 
@@ -19,34 +28,6 @@ async def user_detail(username: str, session: DbSessionDep) -> User:
 
     if user is not None:
         return user
-    # dsn = "sqlite+aiosqlite:///./test.db"
-    # engine = create_async_engine(dsn)
-    # async with engine.connect() as conn:
-    #     await conn.run_sync(SQLModel.metadata.drop_all)
-    #     await conn.run_sync(SQLModel.metadata.create_all)
-    #     await conn.commit()
-
-    # session_factory = create_session(engine)
-
-    # async with session_factory() as session:
-    #     stmt = select(User).where(User.username == username)
-    #     result = await session.execute(stmt)
-    #     user = result.scalar_one_or_none()
-
-    # if user:
-    #     return user
-
-
-    # if username == "test":
-    #     return {
-    #         "id": 1,
-    #         "username": username,
-    #         "email": f"{username}@example.com",
-    #         "display_name": username,
-    #         "is_host": True,
-    #         "created_at": datetime.now(timezone.utc),
-    #         "updated_at": datetime.now(timezone.utc),
-    #     }
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
@@ -83,3 +64,46 @@ async def signup(payload: dict, session: DbSessionDep) -> User:
     except IntegrityError:
         raise DuplicatedEmailError()
     return user
+
+@router.post("/login", status_code=status.HTTP_200_OK)
+async def login(payload: LoginPayload, session: DbSessionDep) -> JSONResponse:
+    stmt = select(User).where(User.username == payload.username)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise UserNotFoundError()
+    
+    is_valid = verify_password(payload.password, user.hashed_password)
+    
+    if not is_valid:
+        raise PasswordMismatchError()
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": user.username,
+            "display_name": user.display_name,
+            "is_host": user.is_host,
+        },
+        expires_delta=access_token_expires
+    )
+    response_data = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user.model_dump(mode="json", exclude={"hashed_password": "email"})
+    }
+
+    # return JSONResponse(response_data)
+    now = datetime.now(timezone.utc)
+
+    res = JSONResponse(response_data, status_code=status.HTTP_200_OK)
+    res.set_cookie(
+        key="auth_token",
+        value=access_token,
+        expires=now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        httponly=True,
+        secure=True,
+        samesite="strict",
+    )
+    return res

@@ -21,7 +21,7 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True, min_length=4, max_length=40, description="user account ID")
     email: EmailStr = Field(max_length=128, description="user email")
     display_name: str = Field(max_length=40, min_length=4, description="user display name")
-    password: str = Field(max_length=128, min_length=8, description="user password")
+    hashed_password: str = Field(max_length=128, min_length=8, description="user password")
     is_host: bool = Field(default=False, description="Whether the user is a host")
     created_at: datetime = Field(
         default=None, 
@@ -38,13 +38,6 @@ class User(SQLModel, table=True):
             "server_default": func.now(),
             "onupdate": lambda: datetime.now(timezone.utc)
         })
-
-    # @model_validator(mode="before")
-    # @classmethod
-    # def generate_display_name(cls, data: dict):
-    #     if not data.get("display_name"):
-    #         data["display_name"] = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    #     return data
 
     oauth_accounts: list["OAuthAccount"] = Relationship(back_populates="user")
     calendar: "Calendar" = Relationship(back_populates="host", sa_relationship_kwargs={"uselist": False, "single_parent": True}),

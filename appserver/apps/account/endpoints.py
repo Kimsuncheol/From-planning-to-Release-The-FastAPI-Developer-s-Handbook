@@ -17,6 +17,9 @@ from .schemas import SignupPayload
 from .exceptions import PasswordMismatchError, UserNotFoundError
 from .schemas import SignupPayload, UserOut, LoginPayload
 from .utils import verify_password
+from .deps import CurrentUserDep
+from .schemas import UserDetailOut
+from .constants import AUTH_TOKEN_COOKIE_NAME
 
 router = APIRouter(prefix="/account")
 
@@ -99,7 +102,7 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> JSONResponse:
 
     res = JSONResponse(response_data, status_code=status.HTTP_200_OK)
     res.set_cookie(
-        key="auth_token",
+        key=AUTH_TOKEN_COOKIE_NAME,
         value=access_token,
         expires=now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         httponly=True,
@@ -107,3 +110,7 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> JSONResponse:
         samesite="strict",
     )
     return res
+
+@router.get("/me", response_model=UserDetailOut)
+async def me(user: CurrentUserDep) -> User:
+    return user

@@ -4,11 +4,13 @@ from appserver.apps.account import models
 from appserver.apps.calendar import models
 from sqlmodel import SQLModel
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
+from appserver.apps.account.schemas import LoginPayload
 from sqlalchemy.ext.asyncio import AsyncSession
 from appserver.db import create_async_engine, create_session, use_session
 from appserver.app import include_routers
 from appserver.apps.account.utils import hash_password
+
 
 @pytest.fixture(autouse=True)
 async def db_session():
@@ -59,3 +61,21 @@ async def host_user(db_session: AsyncSession):
     await db_session.commit()
     await db_session.flush()
     return user
+
+@pytest.fixture()
+def client_with_auth(fastapi_app: FastAPI, host_user: account_models.User):
+    payload = LoginPayload.model_validate({
+        "username": host_user.username,
+        "password": "testtest"
+    })
+
+    with TestClient(fastapi_app) as client:
+        response = client.post("/account/login", json=payload.model_dump())
+        assert response.status_code == status.HTTP_200_OK
+
+        auth_token = response.cookie.get("auth_token")
+        assert auth_token is not None
+
+        client.cookie["auth_token"] = auth_token
+        yield client
+        

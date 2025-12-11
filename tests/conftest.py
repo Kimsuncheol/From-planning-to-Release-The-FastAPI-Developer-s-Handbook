@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from appserver.db import create_async_engine, create_session, use_session
 from appserver.app import include_routers
 from appserver.apps.account.utils import hash_password
-
+from appserver.apps.calendar import models as calendar_models
 
 @pytest.fixture(autouse=True)
 async def db_session():
@@ -79,3 +79,30 @@ def client_with_auth(fastapi_app: FastAPI, host_user: account_models.User):
         client.cookie["auth_token"] = auth_token
         yield client
         
+@pytest.fixture()
+async def guest_user(db_session: AsyncSession):
+    user = account_models.User(
+        username="puddingcafe",
+        hashed_password=hash_password("testtest"),
+        email="puddingcafe@example.com",
+        display_name="푸딩카페",
+        is_host=False,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.flush()
+    return user
+
+@pytest.fixture()
+async def host_user_calendar(db_session: AsyncSession, host_user: account_models.User):
+    calendar = calendar_models.Calendar(
+        topics=["푸딩캠프", "푸딩카페"],
+        description="푸딩캠프의 캘린더",
+        host_id=host_user.id,
+        google_calendar_id="test",
+    )
+    db_session.add(calendar)
+    await db_session.commit()
+    await db_session.refresh()
+    await db_session.flush()
+    return calendar

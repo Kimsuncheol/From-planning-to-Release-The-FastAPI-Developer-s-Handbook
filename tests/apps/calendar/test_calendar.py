@@ -5,6 +5,7 @@ from appserver.apps.calendar.models import Calendar
 from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut
 from appserver.apps.calendar.endpoints import create_calendar
 from appserver.apps.calendar.exceptions import HostNotFoundError
+from appserver.apps.calendar.exceptions import CalendarNotFoundError
 
 async def test_호스트인_사용자의_username_으로_캘린더_정보를_가져온다(
     user_key: str | None,
@@ -32,4 +33,15 @@ async def test_호스트인_사용자의_username_으로_캘린더_정보를_가
     if isinstance(result, CalendarDetailOut):
         assert result.google_calendar_id == host_user_calendar.google_calendar_id
 
+async def test_존재하지_않는_사용자의_username_으로_캘린더_정보를_가져오려_하면_404_응답을_반환한다(
+    db_session: AsyncSession,
+) -> None:
+    with pytest.raises(HostNotFoundError):
+        await host_calendar_detail("nonexistent", None, db_session)
 
+async def test_호스트가_아닌_사용자의_username_으로_캘린더_정보를_가져오려_하면_404_응답을_반환한다(
+    guest_user: User,
+    db_session: AsyncSession,
+) -> None:
+    with pytest.raises(CalendarNotFoundError):
+        await host_calendar_detail(guest_user.username, None, db_session)

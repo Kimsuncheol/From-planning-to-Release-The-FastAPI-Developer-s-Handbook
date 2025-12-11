@@ -20,6 +20,8 @@ from .utils import verify_password
 from .deps import CurrentUserDep
 from .schemas import UserDetailOut
 from .constants import AUTH_TOKEN_COOKIE_NAME
+from sqlmodel import update
+from .schemas import UpdateUserPayload
 
 router = APIRouter(prefix="/account")
 
@@ -114,3 +116,25 @@ async def login(payload: LoginPayload, session: DbSessionDep) -> JSONResponse:
 @router.get("/me", response_model=UserDetailOut)
 async def me(user: CurrentUserDep) -> User:
     return user
+
+@router.patch("/@me", response_model=UserDetailOut)
+async def update_user(
+    user: CurrentUserDep,
+    payload: UpdateUserPayload,
+    session: DbSessionDep,
+) -> User:
+    updated_data = payload.model_dump(exclude_none=True)
+
+    stmt = update(User).where(User.username == user.username).values(**updated_data)
+    await session.execute(stmt)
+    await session.commit()
+    return user
+
+@router.patch("/@me", response_model=UserDetailOut)
+async def update_user(
+    user: CurrentUserDep,
+    payload: UpdateUserPayload,
+    session: DbSessionDep
+) -> User:
+    updated_data = payload.model_dump(exclude_none=True, exclude={"password", "password_again"})
+    

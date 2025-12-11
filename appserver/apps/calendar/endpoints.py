@@ -6,6 +6,9 @@ from appserver.db import DbSessionDep
 from appserver.apps.account.deps import CurentUserOptionalDep
 from .schemas import CalendarDetailOut, CalendarOut
 from .exceptions import CalendarNotFoundError, HostNotFoundError
+from sqlalchemy.ext import IntegrityError
+from .exceptions import CalendarAlreadyExistsError
+from .exceptions import GuestPermissionError
 
 router = APIRouter()
 
@@ -32,7 +35,32 @@ async def host_calendar_detail(
 
     return CalendarOut.model_validate(calendar)
 
+@router.post(
+    "/calendar",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CalendarDetailOut,
+)
+async def create_calendar(
+    user: CurentUserDep,
+    session: DbSessionDep,
+    payload: CalendarCreateIn,
+) -> CalendarDetailOut:
+    if not user.is_host:
+        raise GuestPermissionError()
+    calendar = Calendar(
+        host_id=user.id,
+        topics=payload.topics,
+        description=payload.description,
+        google_calendar_id=payload.google_calendar_id,
+    )
+    session.add(calendar)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        raise CalendarAlreadyExistsError() from exc
+    return calendar
 
+    
 
 
     

@@ -5,6 +5,7 @@ from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar
 from appserver.apps.calendar.schemas import CalendarDetailOut, CalendarOut
 from appserver.apps.calendar.endpoints import host_calendar_detail
+from appserver.libs.collections.sort import deduplicate_and_sort
 
 @pytest.mark.parametrize("user_key, expected_type", [
     ("host_user", CalendarDetailOut),
@@ -97,3 +98,34 @@ async def test_게스트_사용자가_캘린더를_생성하려_하면_422_응�
     }
     response = client_with_auth.post("/calendar", json=payload)
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+UPDATABLE_FIELDS = frozenset(["topics", "description", "google_calendar_ids"])
+
+@pytest.mark.parametrize("payload", [
+    {"topics": ["topic2", "topic1", "topic2"]},
+    {"description": "문자열 길이가 10자 이상인 설명입니다."},
+    {"google_calendar_id": "invalid_google_calendar_id@group.calendar.google.com"},
+    {"topics": ["topic2", "topic1", "topic2"], "description": "문자열 길이가 10자 이상인 설명입니다.", "google_calendar_id": "invalid_google_calendar_id@group.calendar.google.com"},
+])
+async def test_사용자가_변경하는_항목만_변경되고_나머지는_기존_값을_유지한다(
+    client_with_auth: TestClient,
+    host_user_calendar: Calendar,
+    payload: dict,
+) -> None:
+    before_data = host_user_calendar.model_dump()
+
+    response = client_with_auth.patch("/calendar", json=payload)
+    assert response.status_code == status.HTTP_200_OK
+
+    response = client_with_auth.get(f"/calendar/{host_user_calendar.host.username}")
+    data = response.json()
+    
+    for key, value in payload.items():
+        if key == "topics":
+            assert data[key] == deduplicate_and_sort(value)
+        else:
+            assert data[key] == value
+
+    for key in UPDATABLE_FIELDS - frozenset(payload.keys()):
+        assert data[key] == before_data[key]
+    

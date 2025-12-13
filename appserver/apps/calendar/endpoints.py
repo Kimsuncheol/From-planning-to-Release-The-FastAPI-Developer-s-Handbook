@@ -13,7 +13,8 @@ from .exceptions import CalendarAlreadyExistsError
 from .exceptions import GuestPermissionError
 from .schemas import CalendarUpdateIn, TimeSlotCreateIn, TimeSlotOut
 from .models import Booking
-from .schemas import BookingCreateIn, BookingOut
+from sqlmodel import extract
+from .schemas import BookingCreateIn, BookingOut, SimpleBookingOut
 
 router = APIRouter()
 
@@ -199,5 +200,30 @@ async def get_host_bookings_by_month(
     result = await session.execute(stmt)
     return result.scalars().all()
     
+@router.get(
+    "/calendar/{host_username}/bookings",
+    status_code=status.HTTP_200_OK,
+    response_model=list[SimpleBookingOut],
+)
+async def host_calendar_bookings(
+    host_username: str,
+    session: DbSessionDep,
+    year: Annotated[int, Query(gt=2024, le=2025)],
+    month: Annotated[int, Query(gt=1, le=12)],
+) -> list[SimpleBookingOut]:
+    stmt = select(User).where(User.username == host_username)
+    result = await session.execute(stmt)
+    host = result.scalar_one_or_none()
+    if host is None or host.calendar is None:
+        raise HostNotFoundError()
 
+    stmt = (
+        select(Booking)
+        .where(Booking.time_slot.has(TimeSlot.calendar_id == host.calendar.id))
+        .where(Booking.when.year == year)
+        .where(Booking.when.month == month)
+        .order_by(Booking.when.desc())
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
     

@@ -205,7 +205,7 @@ async def host_bookings(
     time_slot_tuesday: calendar_models.TimeSlot,
 ):
     bookings = []
-    for when in [date(2024, 12, 3), date(2024, 12, 10), date(2024, 12, 17)]:
+    for when in [date(2024, 12, 3), date(2024, 12, 10), date(2024, 12, 17), date(2025, 1, 7)]:
         booking = calendar_models.Booking(
             when=when,
             topic="test",
@@ -234,7 +234,7 @@ async def charming_host_bookings(
         )
         db_session.add(booking)
         bookings.append(booking)
-        
+
     await db_session.commit()
     return bookings
         

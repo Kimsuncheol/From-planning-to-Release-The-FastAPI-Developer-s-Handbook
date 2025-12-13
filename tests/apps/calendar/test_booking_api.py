@@ -72,3 +72,13 @@ async def test_존재하지_않는_시간대에_예약을_생성하면_HTTP_404_
     response = client_with_guest_auth.post(f"/bookings/{host_user.username}", json=payload)
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
+@pytest.mark.usefixtures("charming_host_bookings")
+async def test_호스트는_페이지_단위로_자신에게_예약된_부킹_목록을_받는다(
+    client_with_auth: TestClient,
+    host_bookings: list[Booking],
+):
+    response = client_with_auth.get("/bookings", params={"page": 1, "page_size": 10})
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == len(host_bookings)

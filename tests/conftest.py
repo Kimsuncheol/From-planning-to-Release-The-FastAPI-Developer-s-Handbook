@@ -13,7 +13,7 @@ from appserver.apps.account.utils import hash_password
 from appserver.apps.calendar import models as calendar_models
 
 import calendar
-from datetime import time
+from datetime import time, date
 
 @pytest.fixture(autouse=True)
 async def db_session():
@@ -155,3 +155,86 @@ async def cute_guest_user(db_session: AsyncSession):
     await db_session.commit()
     await db_session.flush()
     return user
+
+@pytest.fixture()
+async def charming_host_user(db_session: AsyncSession):
+    user = account_models.User(
+        username="charming_host",
+        hashed_password=hash_password("testtest"),
+        email="charming_host@example.com",
+        display_name="매력 있는 캠프",
+        is_host=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.flush()
+    return user
+
+@pytest.fixture()
+async def charming_host_user_calendar(db_session: AsyncSession, charming_host_user: account_models.User):
+    calendar = calendar_models.Calendar(
+        topics=["매력 있는 캠프", "매력 있는 캠프"],
+        description="매력 있는 캠프의 캘린더",
+        host_id=charming_host_user.id,
+        google_calendar_id="test",
+    )
+    db_session.add(calendar)
+    await db_session.commit()
+    await db_session.flush(charming_host_user)
+    return calendar
+
+@pytest.fixture()
+async def time_slot_wednesday_thursday(
+    db_session: AsyncSession,
+    charming_host_user_calendar: calendar_models.Calendar,
+):
+    time_slot = calendar_models.TimeSlot(
+        calendar_id=charming_host_user_calendar.id,
+        start_time=time(10, 0),
+        end_time=time(11, 0),
+        weekdays=[calendar.WEDNESDAY, calendar.THURSDAY],
+    )
+    db_session.add(time_slot)
+    await db_session.commit()
+    return time_slot
+
+@pytest.fixture()
+async def host_bookings(
+    db_session: AsyncSession,
+    guest_user: account_models.User,
+    time_slot_tuesday: calendar_models.TimeSlot,
+):
+    bookings = []
+    for when in [date(2024, 12, 3), date(2024, 12, 10), date(2024, 12, 17)]:
+        booking = calendar_models.Booking(
+            when=when,
+            topic="test",
+            time_slot_id=time_slot_tuesday.id,
+            guest_id=guest_user.id,
+        )
+        db_session.add(booking)
+        bookings.append(booking)
+    await db_session.commit()
+    return bookings
+
+@pytest.fixture()
+async def charming_host_bookings(
+    db_session: AsyncSession,
+    guest_user: account_models.User,
+    time_slot_wednesday_thursday: calendar_models.TimeSlot,
+):
+    bookings = []
+    for when in [date(2024, 12, 4), date(2024, 12, 5), date(2024, 12, 11)]:
+        booking = calendar_models.Booking(
+            when=when,
+            topic="test",
+            description="test",
+            time_slot_id=time_slot_wednesday_thursday.id,
+            guest_id=guest_user.id,
+        )
+        db_session.add(booking)
+        bookings.append(booking)
+        
+    await db_session.commit()
+    return bookings
+        

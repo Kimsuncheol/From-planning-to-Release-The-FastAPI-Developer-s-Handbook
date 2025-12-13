@@ -1,4 +1,5 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Query
+from typing import Annotated
 from sqlmodel import select
 from appserver.apps.account.models import User
 from appserver.apps.calendar.models import Calendar, TimeSlot
@@ -174,3 +175,29 @@ async def create_booking(
     await session.commit()
     await session.refresh(booking)
     return booking
+
+@router.get(
+    "/bookings",
+    status_code=status.HTTP_200_OK,
+    response_model=list[BookingOut],
+)
+async def get_host_bookings_by_month(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    page: Annotated[int, Query(gt=1)],
+    page_size: Annotated[int, Query(gt=1, le=50)],
+) -> list[BookingOut]:
+    if not user.is_host or user.calendar is None:
+        raise GuestPermissionError()
+    stmt = (
+        select(Booking)
+        .where(Booking.time_slot.has(TimeSlot.calendar_id == user.calendar.id))
+        .order_by(Booking.when.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+    
+
+    

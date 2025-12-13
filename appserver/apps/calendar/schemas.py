@@ -2,6 +2,7 @@ from typing import Annotated
 from sqlmodel import SQLModel, Field
 from pydantic import AwareDatetime, EmailStr, AfterValidator
 from appserver.libs.collections.sort import deduplicate_and_sort
+from datetime import time
 class CalendarOut(SQLModel):
     topics: list[str]
     description: str
@@ -22,3 +23,16 @@ class CalendarUpdateIn(SQLModel):
     topics: Topics | None = Field(default=None, min_length=1, description=">게스트와 나눌 주제들>",)
     description: str | None = Field(default=None, min_length=10, description=">게스트에게 보여 줄 설명>")
     google_calendar_id: str | None = Field(default=None, min_length=20, description="Google Calendar ID")
+
+
+class TimeSlotCreateIn(SQLModel):
+    start_time: time
+    end_time: time
+    weekdays: list[int]
+
+class TimeSlotOut(SQLModel):
+    start_time: time
+    end_time: time
+    weekdays: list[int]
+    created_at: AwareDatetime
+    updated_at: AwareDatetime

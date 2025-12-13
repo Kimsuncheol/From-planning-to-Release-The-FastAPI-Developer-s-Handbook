@@ -27,3 +27,11 @@ class GuestPermissionError(HTTPException):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Guest permission error"
         )
+
+class TimeSlotOverlapError(HTTPException):
+    def __init__(self):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Time slot overlap error"
+        )
+    

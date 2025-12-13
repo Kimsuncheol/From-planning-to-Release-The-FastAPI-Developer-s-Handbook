@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 from appserver.apps.account.models import User
 from appserver.apps.calendar.models import TimeSlot
 
+from pytest_lazy_fixtures import lf
+
 @pytest.mark.usefixtures("host_user_calendar")
 async def test_유효한_예약_신청_내용으로_예약_생성을_요청하면_예약_내용을_담아_HTTP_201_응답한다(
     time_slot_tuesday: TimeSlot,
@@ -116,3 +118,51 @@ async def test_게스트는_호스트의_캘린더의_예약_내역을_월_단�
     assert len(data) == len(booking_dates)
     assert all([item["when"] in booking_dates for item in data])
     
+async def test_게스트는_자신의_캘린더의_예약_내역을_페이지_단위로_받는다(
+    client_with_guest_auth: TestClient,
+    charming_host_bookings: list[Booking],
+    host_bookings: list[Booking],
+):
+    response = client_with_guest_auth.get("/guest-calendar/bookings", params={"page": 1, "page_size": 50})
+
+    assert response.status_code == status.HTTP_200_OK
+
+    id_set = frozenset([booking.id for booking in host_bookings] + [booking.id for booking in charming_host_bookings])
+    data = response.json()
+    assert len(data) == len(id_set)
+    assert all([item["id"] in id_set for item in data])
+
+async def test_사용자는_특정_예약_내역_데이터를_받는다(
+    host_bookings: list[Booking],
+    client_with_guest_auth: TestClient,
+    client_with_smart_guest_auth: TestClient,
+):
+    response = client_with_smart_guest_auth.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    response = client_with_guest_auth.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == host_bookings[0].id
+
+@pytest.mark.parametrize(
+    "client, expected_status_code",
+    [
+        (lf("client_with_guest_auth"), status.HTTP_200_OK),
+        (lf("client_with_smart_guest_auth"), status.HTTP_404_NOT_FOUND),
+    ],
+)
+async def test_사용자는_특정_예약_내역_데이터를_받는다(
+    host_bookings: list[Booking],
+    client: TestClient,
+    expected_status_code: int,
+):
+    response = client.get(f"/bookings/{host_bookings[0].id}")
+
+    assert response.status_code == expected_status_code
+
+    data = response.json()
+    if expected_status_code == status.HTTP_200_OK:
+        assert data["id"] == host_bookings[0].id

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Query
+from fastapi import APIRouter, status, Query, HTTPException
 from typing import Annotated
 from sqlmodel import select
 from appserver.apps.account.models import User
@@ -227,3 +227,51 @@ async def host_calendar_bookings(
     result = await session.execute(stmt)
     return result.scalars().all()
     
+@router.get(
+    "/guest-calendar/bookings",
+    status_code=status.HTTP_200_OK,
+    response_model=list[SimpleBookingOut],
+)
+async def guest_calendar_bookings(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    page: Annotated[int, Query(ge=1)],
+    page_size: Annotated[int, Query(ge=1, le=50)],
+) -> list[SimpleBookingOut]:
+    if not user.is_guest:
+        raise GuestPermissionError()
+    stmt = (
+        select(Booking)
+        .where(Booking.guest_id == user.id)
+        .order_by(Booking.when.desc(), Booking.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+@router.get(
+    "/bookings/{booking_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=BookingOut,
+)
+async def get_booking_by_id(
+    user: CurrentUserDep,
+    session: DbSessionDep,
+    booking_id: int,
+) -> BookingOut:
+    stmt = select(Booking).where(Booking.id == booking_id)
+    if user.is_host and user.calendar is not None:
+        stmt = (
+            stmt
+            .join(Booking.time_slot)
+            .where((TimeSlot.calendar_id == user.calendar.id) | (Booking.guest_id == user.id))
+        )
+    else:
+        stmt = stmt.where(Booking.guest_id == user.id)
+
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    return booking

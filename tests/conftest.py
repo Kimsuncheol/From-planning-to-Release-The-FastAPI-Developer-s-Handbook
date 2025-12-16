@@ -268,3 +268,33 @@ def client_with_smart_guest_auth(fastapi_app: FastAPI, smart_guest_user: account
 
         client.cookie["auth_token"] = auth_token
         yield client
+
+@pytest.fixture()
+async def time_slot_monday(
+    db_session: AsyncSession,
+    host_user_calendar: calendar_models.Calendar,
+):
+    time_slot = calendar_models.TimeSlot(
+        calendar_id=host_user_calendar.id,
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        weekdays=[calendar.MONDAY],
+    )
+    db_session.add(time_slot)
+    await db_session.commit()
+    return time_slot
+
+@pytest.fixture()
+async def time_slot_friday(
+    db_session: AsyncSession,
+    charming_host_user_calendar: calendar_models.Calendar,
+) -> calendar_models.TimeSlot:
+    time_slot = calendar_models.TimeSlot(
+        calendar_id=charming_host_user_calendar.id,
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        weekdays=[calendar.FRIDAY],
+    )
+    db_session.add(time_slot)
+    await db_session.commit()
+    return time_slot

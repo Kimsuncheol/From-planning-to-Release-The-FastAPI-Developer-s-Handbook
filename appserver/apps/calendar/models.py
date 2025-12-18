@@ -88,6 +88,12 @@ class Booking(SQLModel, table=True):
     topic: str
     description: str = Field(sa_type=Text, description="예약 설명")
 
+    attendance_status: AttendanceStatus = Field(
+        default=AttendanceStatus.SCHEDULED,
+        description="참석 상태",
+        sa_type=String,
+    )
+
     time_slot_id: int = Field(foreign_key="time_slots.id")
     time_slot: TimeSlot = Relationship(back_populates="bookings")
 
